@@ -7,7 +7,14 @@ import networkx as nx
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
+from graph_data import graph as TEAM_GRAPH, locations as TEAM_LOCATIONS
 
+from algorithms._common import make_admissible_heuristic
+from algorithms.astar import astar_search
+from algorithms.bfs import bfs_search
+from algorithms.dfs import dfs_search
+from algorithms.greedy import greedy_search
+from algorithms.hill_climbing import hill_climbing_search
 # ============================================================
 # RouteIQ - Intelligent Route Finder  (v2 - illustrated map UI)
 # Run:  streamlit run routeiq_ultra.py
@@ -175,175 +182,75 @@ section[data-testid="stSidebar"] hr { border-color: rgba(255,255,255,.1); }
 # ============================================================
 # Sample map data (replace with team graph module when ready)
 # ============================================================
+
+# ============================================================
+# Team graph data
+# ============================================================
 POSITIONS = {
-    "College": (0.5, 4.8),
-    "Library": (2.0, 5.5),
-    "Hospital": (4.0, 5.0),
-    "Park": (2.4, 3.3),
-    "Station": (5.6, 3.8),
-    "Market": (4.2, 2.5),
-    "Airport": (7.3, 2.0),
-    "Museum": (6.2, 5.7),
-    "Stadium": (0.8, 1.5),
+    node: (details["x"] / 100, (400 - details["y"]) / 100)
+    for node, details in TEAM_LOCATIONS.items()
 }
 
-ROAD_LIST = [
-    ("College", "Library", 2), ("College", "Park", 3), ("College", "Stadium", 4),
-    ("Library", "Hospital", 3), ("Library", "Park", 2), ("Library", "Museum", 6),
-    ("Park", "Market", 3), ("Park", "Stadium", 3), ("Hospital", "Museum", 2),
-    ("Hospital", "Station", 4), ("Museum", "Station", 2), ("Station", "Market", 2),
-    ("Station", "Airport", 5), ("Market", "Airport", 3), ("Market", "Stadium", 5),
-]
-
 G = nx.Graph()
-G.add_nodes_from(POSITIONS.keys())
-for u, v, w in ROAD_LIST:
-    G.add_edge(u, v, weight=w)
 
+for node, neighbors in TEAM_GRAPH.items():
+    G.add_node(node)
+
+    for neighbor, weight in neighbors.items():
+        G.add_edge(node, neighbor, weight=weight)
+
+HEURISTIC = make_admissible_heuristic(TEAM_GRAPH)
+
+# Display-friendly location names
+LOCATION_NAMES = {
+    node: details["name"]
+    for node, details in TEAM_LOCATIONS.items()
+}
 
 # ============================================================
 # Search algorithms (unchanged logic)
 # ============================================================
-def bfs(graph, start, goal):
-    queue = deque([start])
-    parent = {start: None}
-    explored = []
-    while queue:
-        node = queue.popleft()
-        if node in explored:
-            continue
-        explored.append(node)
-        if node == goal:
-            break
-        for nb in sorted(graph.neighbors(node)):
-            if nb not in parent:
-                parent[nb] = node
-                queue.append(nb)
-    return make_result(graph, start, goal, parent, explored)
 
-
-def dfs(graph, start, goal):
-    stack = [start]
-    parent = {start: None}
-    explored = []
-    while stack:
-        node = stack.pop()
-        if node in explored:
-            continue
-        explored.append(node)
-        if node == goal:
-            break
-        for nb in sorted(graph.neighbors(node), reverse=True):
-            if nb not in parent:
-                parent[nb] = node
-                stack.append(nb)
-    return make_result(graph, start, goal, parent, explored)
-
-
-def heuristic(node, goal):
-    x1, y1 = POSITIONS[node]
-    x2, y2 = POSITIONS[goal]
-    return ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5
-
-
-def greedy_best_first(graph, start, goal):
-    heap = [(heuristic(start, goal), start)]
-    parent = {start: None}
-    explored = []
-    queued = {start}
-    while heap:
-        _, node = heapq.heappop(heap)
-        if node in explored:
-            continue
-        explored.append(node)
-        if node == goal:
-            break
-        for nb in graph.neighbors(node):
-            if nb not in parent and nb not in queued:
-                parent[nb] = node
-                queued.add(nb)
-                heapq.heappush(heap, (heuristic(nb, goal), nb))
-    return make_result(graph, start, goal, parent, explored)
-
-
-def a_star(graph, start, goal):
-    heap = [(heuristic(start, goal), 0, start)]
-    parent = {start: None}
-    g_score = {start: 0}
-    explored = []
-    closed = set()
-    while heap:
-        _, cost, node = heapq.heappop(heap)
-        if node in closed:
-            continue
-        closed.add(node)
-        explored.append(node)
-        if node == goal:
-            break
-        for nb in graph.neighbors(node):
-            new_cost = cost + graph[node][nb]["weight"]
-            if new_cost < g_score.get(nb, float("inf")):
-                g_score[nb] = new_cost
-                parent[nb] = node
-                heapq.heappush(heap, (new_cost + heuristic(nb, goal), new_cost, nb))
-    return make_result(graph, start, goal, parent, explored)
-
-
-def hill_climbing(graph, start, goal):
-    current = start
-    parent = {start: None}
-    explored = []
-    visited = set()
-    while current not in visited:
-        visited.add(current)
-        explored.append(current)
-        if current == goal:
-            break
-        options = [n for n in graph.neighbors(current) if n not in visited]
-        if not options:
-            break
-        nxt = min(options, key=lambda n: heuristic(n, goal))
-        if heuristic(nxt, goal) >= heuristic(current, goal):
-            break
-        parent[nxt] = current
-        current = nxt
-    return make_result(graph, start, goal, parent, explored)
-
-
-def make_result(graph, start, goal, parent, explored):
-    found = goal in parent
-    path = []
-    if found:
-        node = goal
-        while node is not None:
-            path.append(node)
-            node = parent[node]
-        path.reverse()
-        if not path or path[0] != start:
-            found, path = False, []
-    cost = sum(graph[path[i]][path[i + 1]]["weight"] for i in range(len(path) - 1)) if found else None
-    return {
-        "found": found, "path": path, "cost": cost,
-        "edges": max(len(path) - 1, 0) if found else 0,
-        "nodes_explored": len(explored), "explored": explored,
-    }
-
+# ============================================================
+# Team search algorithms
+# ============================================================
 
 ALGORITHMS = {
-    "Breadth-First Search (BFS)": bfs,
-    "Depth-First Search (DFS)": dfs,
-    "Greedy Best-First Search": greedy_best_first,
-    "A* Search": a_star,
-    "Hill Climbing": hill_climbing,
+    "Breadth-First Search (BFS)": bfs_search,
+    "Depth-First Search (DFS)": dfs_search,
+    "Greedy Best-First Search": greedy_search,
+    "A* Search": astar_search,
+    "Hill Climbing": hill_climbing_search,
 }
 
 
 def run_algorithm(name, start, goal):
     t0 = time.perf_counter()
-    result = ALGORITHMS[name](G, start, goal)
-    result["time_ms"] = (time.perf_counter() - t0) * 1000
-    result["algorithm"] = name
-    return result
+    search = ALGORITHMS[name]
+
+    # Greedy, A*, and Hill Climbing require a heuristic.
+    if name in (
+        "Greedy Best-First Search",
+        "A* Search",
+        "Hill Climbing",
+    ):
+        result = search(TEAM_GRAPH, start, goal, HEURISTIC)
+    else:
+        result = search(TEAM_GRAPH, start, goal)
+
+    path = result["path"]
+    found = bool(path) and path[0] == start and path[-1] == goal
+
+    return {
+        "found": found,
+        "path": path,
+        "cost": result["cost"],
+        "edges": max(len(path) - 1, 0) if found else 0,
+        "nodes_explored": result["nodes_explored"],
+        "explored": [],
+        "time_ms": (time.perf_counter() - t0) * 1000,
+        "algorithm": name,
+    }
 
 
 # ============================================================
@@ -466,17 +373,51 @@ def icon_stadium():
 
 
 ICONS = {
-    "College": icon_college, "Library": icon_library, "Hospital": icon_hospital, "Park": icon_park,
-    "Station": icon_station, "Market": icon_market, "Airport": icon_airport, "Museum": icon_museum,
-    "Stadium": icon_stadium,
+    "A": icon_college,   # College Gate
+    "B": icon_library,   # Library
+    "C": icon_park,      # Main Road
+    "D": icon_hospital,  # Canteen
+    "E": icon_station,   # Bus Stop
+    "F": icon_stadium,  # Hostel
 }
 
 W, H = 960, 620
 
 
+
+
 def px(name):
+    # Center the complete graph within the SVG map.
     x, y = POSITIONS[name]
-    return 90 + x * 105, 60 + (6.3 - y) * 100
+
+    min_x = min(pos[0] for pos in POSITIONS.values())
+    max_x = max(pos[0] for pos in POSITIONS.values())
+    min_y = min(pos[1] for pos in POSITIONS.values())
+    max_y = max(pos[1] for pos in POSITIONS.values())
+
+    graph_width = max_x - min_x or 1
+    graph_height = max_y - min_y or 1
+
+    available_width = W - 240
+    available_height = H - 220
+
+    scale = min(
+        available_width / graph_width,
+        available_height / graph_height,
+    )
+
+    graph_pixel_width = graph_width * scale
+    graph_pixel_height = graph_height * scale
+
+    offset_x = (W - graph_pixel_width) / 2
+    offset_y = (H - graph_pixel_height) / 2
+
+    return (
+        offset_x + (x - min_x) * scale,
+        offset_y + (max_y - y) * scale,
+    )
+
+
 
 
 def build_map_html(start, goal, result=None, speed=1.0, show_order=True):
@@ -501,7 +442,8 @@ def build_map_html(start, goal, result=None, speed=1.0, show_order=True):
         s.append(R(tx - 2, ty, 4, 9, "#92400e") + C(tx, ty - 2, 11, "#4ade80", "#16a34a", 1))
 
     # roads
-    for u, v, w in ROAD_LIST:
+    for u, v, data in G.edges(data=True):
+        w = data["weight"]
         (x1, y1), (x2, y2) = px(u), px(v)
         s.append(f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="#94a3b8" stroke-width="22" stroke-linecap="round"/>')
         s.append(f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="#475569" stroke-width="17" stroke-linecap="round"/>')
@@ -517,7 +459,8 @@ def build_map_html(start, goal, result=None, speed=1.0, show_order=True):
             f'<g class="fade" style="animation-delay:{t0 + dur:.2f}s"><path d="{path_d}" fill="none" stroke="#a7f3d0" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="14 10" class="flow"/></g>')
 
     # weight badges
-    for u, v, w in ROAD_LIST:
+    for u, v, data in G.edges(data=True):
+        w = data["weight"]
         (x1, y1), (x2, y2) = px(u), px(v)
         mx, my = (x1 + x2) / 2, (y1 + y2) / 2
         on = frozenset((u, v)) in path_edges
@@ -790,7 +733,7 @@ result = st.session_state.route_result
 
 with map_col:
     html('<div class="sec"><span class="ms">map</span>Live City Map</div>')
-    components.html(build_map_html(start, destination, result, speed, show_order), height=560, scrolling=False)
+    components.html(build_map_html(start, destination, result, speed, show_order), height=680, scrolling=False)
     html("""
     <div class="legend">
       <span><i style="background:#16a34a"></i>Start</span>

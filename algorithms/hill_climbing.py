@@ -1,6 +1,6 @@
 from time import perf_counter
 
-from algorithms._common import make_result
+from algorithms._common import graph_neighbors, make_result
 
 
 def hill_climbing_search(graph, start, goal, heuristic):
@@ -23,7 +23,7 @@ def hill_climbing_search(graph, start, goal, heuristic):
         nodes_explored += 1
         neighbors = [
             neighbor
-            for neighbor in graph.neighbors(current)
+            for neighbor in graph_neighbors(graph, current)
             if neighbor not in visited
         ]
 

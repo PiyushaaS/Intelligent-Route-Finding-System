@@ -1,9 +1,9 @@
 # Intelligent Route-Finding System
 
 A modular Python project that compares five AI search strategies for finding
-routes in a weighted NetworkX graph. The included `utils/graph_data.py` graph is
-a small sample; it can be replaced by the final location dataset without
-coupling the algorithms to a user interface.
+routes in a weighted graph. The project-root `graph_data.py` contains Member 1's
+adjacency-dictionary dataset (locations `A`–`F`); the algorithms also retain
+support for weighted and unweighted NetworkX graphs.
 
 ## Algorithms
 
@@ -17,14 +17,18 @@ coupling the algorithms to a user interface.
 - **A\* Search:** prioritizes `f(n) = g(n) + h(n)` and updates/reopens nodes
   when a cheaper route is found. It is optimal when edge costs are
   non-negative and the heuristic is admissible (never overestimates remaining
-  cost) and zero at the goal. The sample's Euclidean coordinate heuristic is
-  compatible with its sample edge-cost scale.
+  cost) and zero at the goal. For Member 1's graph, the runner uses a
+  graph-derived lower bound: the minimum edge cost multiplied by the minimum
+  number of remaining hops. This is admissible for its non-negative edge
+  weights. The supplied coordinates are display coordinates, not kilometer
+  distances, so they are not used as a distance heuristic.
 - **Hill Climbing:** repeatedly chooses an unvisited neighbor with a strictly
   lower heuristic value. It detects revisits and stops at a local optimum or
   dead end; it is neither complete nor optimal and does not use route cost to
   choose neighbors.
 
-All algorithms treat a missing edge `weight` attribute as a cost of `1`.
+For NetworkX graphs, a missing edge `weight` attribute is treated as a cost of
+`1`. Adjacency dictionaries use their numeric edge values directly.
 `nodes_explored` counts nodes whose neighbors were examined; a goal node is
 not counted as expanded.
 
@@ -40,8 +44,8 @@ python -m pip install -r requirements.txt
 python main.py
 ```
 
-The runner compares all five algorithms on the same sample graph, from
-`College` to `Airport`. It is independent of Streamlit.
+The runner compares all five algorithms on Member 1's graph, from `A`
+(`College Gate`) to `F` (`Hostel`). It is independent of Streamlit.
 
 ## Run tests
 
@@ -59,7 +63,8 @@ astar_search(graph, start, goal, heuristic)
 hill_climbing_search(graph, start, goal, heuristic)
 ```
 
-`graph` is a NetworkX graph. A heuristic is a callable of the form
+`graph` can be a NetworkX graph or an adjacency dictionary in which each
+neighbor maps to its numeric edge cost. A heuristic is a callable of the form
 `heuristic(node, goal) -> number`. Each function returns the same dictionary:
 
 ```python

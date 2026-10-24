@@ -2,7 +2,7 @@ from heapq import heappop, heappush
 from itertools import count
 from time import perf_counter
 
-from algorithms._common import make_result, reconstruct_path
+from algorithms._common import graph_neighbors, make_result, reconstruct_path
 
 
 def greedy_search(graph, start, goal, heuristic):
@@ -37,7 +37,7 @@ def greedy_search(graph, start, goal, heuristic):
         visited.add(current)
         nodes_explored += 1
 
-        for neighbor in graph.neighbors(current):
+        for neighbor in graph_neighbors(graph, current):
             if neighbor not in parents:
                 parents[neighbor] = current
                 heappush(

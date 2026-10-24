@@ -1,6 +1,6 @@
 from time import perf_counter
 
-from algorithms._common import make_result, reconstruct_path
+from algorithms._common import graph_neighbors, make_result, reconstruct_path
 
 
 def dfs_search(graph, start, goal):
@@ -24,7 +24,7 @@ def dfs_search(graph, start, goal):
             break
 
         nodes_explored += 1
-        for neighbor in graph.neighbors(current):
+        for neighbor in graph_neighbors(graph, current):
             if neighbor not in parent:
                 parent[neighbor] = current
                 stack.append(neighbor)

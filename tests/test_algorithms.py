@@ -1,11 +1,14 @@
 import networkx as nx
 import pytest
 
+from algorithms._common import make_admissible_heuristic
 from algorithms.astar import astar_search
 from algorithms.bfs import bfs_search
 from algorithms.dfs import dfs_search
 from algorithms.greedy import greedy_search
 from algorithms.hill_climbing import hill_climbing_search
+from graph_data import graph as member_graph
+from graph_data import locations
 from utils.graph_data import G, heuristic
 
 
@@ -24,6 +27,12 @@ def run_search(search, graph, start, goal, uses_heuristic, estimate=heuristic):
     return search(graph, start, goal)
 
 
+def run_member_search(search, uses_heuristic, start, goal, graph=member_graph):
+    if uses_heuristic:
+        return search(graph, start, goal, make_admissible_heuristic(graph))
+    return search(graph, start, goal)
+
+
 @pytest.mark.parametrize(("search", "uses_heuristic"), SEARCHES)
 def test_returns_consistent_result_structure(search, uses_heuristic):
     result = run_search(search, G, "College", "Airport", uses_heuristic)
@@ -36,6 +45,88 @@ def test_returns_consistent_result_structure(search, uses_heuristic):
     assert result["nodes_explored"] >= 0
     assert isinstance(result["execution_time"], float)
     assert result["execution_time"] >= 0
+
+
+@pytest.mark.parametrize(("search", "uses_heuristic"), SEARCHES)
+def test_member_graph_returns_valid_route_and_actual_weighted_cost(search, uses_heuristic):
+    result = run_member_search(search, uses_heuristic, "A", "F")
+    path = result["path"]
+
+    assert path[0] == "A"
+    assert path[-1] == "F"
+    assert all(end in member_graph[start] for start, end in zip(path, path[1:]))
+    assert result["cost"] == sum(
+        member_graph[start][end] for start, end in zip(path, path[1:])
+    )
+    assert result["cost"] is not None
+    assert set(result) == {"path", "cost", "nodes_explored", "execution_time"}
+
+
+def test_member_graph_a_star_finds_minimum_weighted_cost():
+    result = astar_search(
+        member_graph,
+        "A",
+        "F",
+        make_admissible_heuristic(member_graph),
+    )
+
+    assert result["path"] == ["A", "B", "D", "F"]
+    assert result["cost"] == 12
+
+
+def test_member_graph_heuristic_is_admissible():
+    weighted_graph = nx.Graph()
+    for start, neighbours in member_graph.items():
+        for end, weight in neighbours.items():
+            weighted_graph.add_edge(start, end, weight=weight)
+
+    estimate = make_admissible_heuristic(member_graph)
+    for start in member_graph:
+        distances = nx.single_source_dijkstra_path_length(
+            weighted_graph,
+            start,
+            weight="weight",
+        )
+        for goal, actual_cost in distances.items():
+            assert estimate(start, goal) <= actual_cost
+
+
+@pytest.mark.parametrize(("search", "uses_heuristic"), SEARCHES)
+def test_member_graph_start_equal_goal(search, uses_heuristic):
+    result = run_member_search(search, uses_heuristic, "C", "C")
+
+    assert result["path"] == ["C"]
+    assert result["cost"] == 0
+    assert result["nodes_explored"] == 0
+
+
+@pytest.mark.parametrize(("search", "uses_heuristic"), SEARCHES)
+@pytest.mark.parametrize(("start", "goal"), [("Z", "F"), ("A", "Z")])
+def test_member_graph_missing_locations(search, uses_heuristic, start, goal):
+    result = run_member_search(search, uses_heuristic, start, goal)
+
+    assert result["path"] == []
+    assert result["cost"] is None
+    assert result["nodes_explored"] == 0
+
+
+@pytest.mark.parametrize(("search", "uses_heuristic"), SEARCHES)
+def test_member_graph_unreachable_goal(search, uses_heuristic):
+    disconnected_graph = {
+        "start": {"nearby": 2},
+        "nearby": {"start": 2},
+        "goal": {},
+    }
+    result = run_member_search(
+        search,
+        uses_heuristic,
+        "start",
+        "goal",
+        disconnected_graph,
+    )
+
+    assert result["path"] == []
+    assert result["cost"] is None
 
 
 def test_known_sample_route_and_cost():
@@ -51,6 +142,21 @@ def test_sample_coordinate_heuristic_is_admissible_for_edge_costs():
         distances = nx.single_source_dijkstra_path_length(G, start, weight="weight")
         for goal, actual_cost in distances.items():
             assert heuristic(start, goal) <= actual_cost
+
+
+def test_member_coordinates_are_display_only_for_route_heuristic():
+    coordinate_distance = (
+        (locations["A"]["x"] - locations["F"]["x"]) ** 2
+        + (locations["A"]["y"] - locations["F"]["y"]) ** 2
+    ) ** 0.5
+    route_cost = astar_search(
+        member_graph,
+        "A",
+        "F",
+        make_admissible_heuristic(member_graph),
+    )["cost"]
+
+    assert coordinate_distance > route_cost
 
 
 @pytest.mark.parametrize(("search", "uses_heuristic"), SEARCHES)

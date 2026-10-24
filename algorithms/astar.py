@@ -3,7 +3,7 @@ from itertools import count
 from math import inf
 from time import perf_counter
 
-from algorithms._common import make_result, reconstruct_path
+from algorithms._common import edge_weight, graph_neighbors, make_result, reconstruct_path
 
 
 def astar_search(graph, start, goal, heuristic):
@@ -40,8 +40,8 @@ def astar_search(graph, start, goal, heuristic):
             )
 
         nodes_explored += 1
-        for neighbor in graph.neighbors(current):
-            edge_cost = graph[current][neighbor].get("weight", 1)
+        for neighbor in graph_neighbors(graph, current):
+            edge_cost = edge_weight(graph, current, neighbor)
             tentative_cost = current_cost + edge_cost
 
             if tentative_cost < cost_so_far.get(neighbor, inf):

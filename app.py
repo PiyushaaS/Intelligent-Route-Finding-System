@@ -175,6 +175,87 @@ section[data-testid="stSidebar"] hr { border-color: rgba(255,255,255,.1); }
 .st-key-swap_btn button:hover { border-color:#38bdf8 !important; color:#fff !important; background:rgba(56,189,248,.1) !important; }
 .st-key-reset_btn button { background:transparent !important; border:none !important; color:#8fb2d9 !important; min-height:2rem !important; font-weight:600 !important; }
 .st-key-reset_btn button:hover { color:#fff !important; background:rgba(255,255,255,.07) !important; }
+/* Fix selected dropdown text */
+section[data-testid="stSidebar"] div[data-baseweb="select"] span {
+    color: #0f2d52 !important;
+    -webkit-text-fill-color: #0f2d52 !important;
+    opacity: 1 !important;
+}
+
+/* Fix dropdown background and border */
+section[data-testid="stSidebar"] div[data-baseweb="select"] > div {
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 12px !important;
+}
+
+/* Remove the unwanted red error-like border */
+section[data-testid="stSidebar"] div[data-baseweb="select"] > div:focus-within {
+    border: 1px solid #38bdf8 !important;
+    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2) !important;
+}
+
+/* Make dropdown arrows dark and visible */
+section[data-testid="stSidebar"] div[data-baseweb="select"] svg {
+    fill: #0f2d52 !important;
+    color: #0f2d52 !important;
+}
+
+/* Make dropdown menu text readable */
+div[data-baseweb="popover"] li {
+    color: #0f2d52 !important;
+    background: #ffffff !important;
+}
+
+/* Highlight the selected menu option */
+div[data-baseweb="popover"] li[aria-selected="true"] {
+    background: #eaf3ff !important;
+    color: #0f2d52 !important;
+}
+/* Readable selected values in sidebar dropdowns */
+section[data-testid="stSidebar"] [data-baseweb="select"] span,
+section[data-testid="stSidebar"] [data-baseweb="select"] input {
+    color: #0f2d52 !important;
+    -webkit-text-fill-color: #0f2d52 !important;
+    opacity: 1 !important;
+    font-weight: 600 !important;
+}
+
+/* White dropdown fields with consistent borders */
+section[data-testid="stSidebar"] [data-baseweb="select"] > div {
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 12px !important;
+}
+
+/* Visible dropdown arrows */
+section[data-testid="stSidebar"] [data-baseweb="select"] svg {
+    color: #0f2d52 !important;
+    fill: #0f2d52 !important;
+}
+
+/* Clean Swap button */
+.st-key-swap_btn button {
+    border: 1px solid #536b86 !important;
+    border-radius: 12px !important;
+    color: #e2edfa !important;
+    background: #203b5c !important;
+    transition: all 0.2s ease !important;
+}
+
+.st-key-swap_btn button:hover {
+    background: #294d73 !important;
+    border-color: #38bdf8 !important;
+}
+
+/* Consistent sidebar spacing */
+section[data-testid="stSidebar"] [data-testid="stSelectbox"] {
+    margin-bottom: 8px;
+}
+
+section[data-testid="stSidebar"] hr {
+    margin: 16px 0;
+}
 </style>
 """)
 
@@ -490,21 +571,48 @@ def build_map_html(start, goal, result=None, speed=1.0, show_order=True):
         ripple = ""
         if name in explored:
             ripple = f'<circle r="50" fill="none" stroke="#f59e0b" stroke-width="4" class="ripple" style="animation-delay:{explored.index(name) * step:.2f}s"/>'
-        s.append(f'<g transform="translate({x:.1f},{y:.1f})"><g class="node" style="animation-delay:{idx * 0.07:.2f}s"><title>{name}</title>{pulse}{ripple}'
+        s.append(
+                f'<g transform="translate({x:.1f},{y:.1f})">'
+                f'<g class="node" style="animation-delay:{idx * 0.07:.2f}s">'
+                f'<title>{LOCATION_NAMES.get(name, name)}</title>{pulse}{ripple}'
                  f'<circle r="50" fill="{fill}" stroke="{ring}" stroke-width="4" filter="url(#sh)"/>'
                  f'<g transform="scale(.9) translate(0,2)">{ICONS[name]()}</g>')
-        lw = len(name) * 8 + 22
-        s.append(f'<rect x="{-lw / 2}" y="54" width="{lw}" height="22" rx="11" fill="#0f2d52"/>'
-                 f'<text y="69" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">{name}</text>')
+                # Display the actual location name instead of A, B, C...
+        display_name = LOCATION_NAMES.get(name, name)
+
+        # Keep long labels readable
+        label = display_name if len(display_name) <= 16 else display_name[:15] + "…"
+
+        # Calculate label width from the displayed name
+        lw = max(len(label) * 7.5 + 20, 70)
+
+        s.append(
+            f'<rect x="{-lw / 2:.1f}" y="54" '
+            f'width="{lw:.1f}" height="24" rx="11" fill="#0f2d52"/>'
+            f'<text y="69" text-anchor="middle" font-size="10.5" '
+            f'font-weight="700" fill="#fff">{label}</text>'
+        )
+
         if name in (start, goal):
             tag, col = ("START", "#16a34a") if name == start else ("DEST", "#dc2626")
-            s.append(f'<g transform="translate(0,-66)"><rect x="-26" y="-11" width="52" height="22" rx="11" fill="{col}"/>'
-                     f'<polygon points="-5,10 5,10 0,17" fill="{col}"/><text y="4" text-anchor="middle" font-size="10" font-weight="800" fill="#fff">{tag}</text></g>')
+            s.append(
+                f'<g transform="translate(0,-66)">'
+                f'<rect x="-26" y="-11" width="52" height="22" rx="11" fill="{col}"/>'
+                f'<polygon points="-5,10 5,10 0,17" fill="{col}"/>'
+                f'<text y="4" text-anchor="middle" font-size="10" '
+                f'font-weight="800" fill="#fff">{tag}</text></g>'
+            )
+
         if show_order and name in explored:
             i = explored.index(name) + 1
-            s.append(f'<g transform="translate(36,-36)"><g class="pop" style="animation-delay:{(i - 1) * step:.2f}s">'
-                     f'<circle r="11" fill="#f59e0b" stroke="#fff" stroke-width="2"/>'
-                     f'<text y="4" text-anchor="middle" font-size="11" font-weight="800" fill="#fff">{i}</text></g></g>')
+            s.append(
+                f'<g transform="translate(36,-36)">'
+                f'<g class="pop" style="animation-delay:{(i - 1) * step:.2f}s">'
+                f'<circle r="11" fill="#f59e0b" stroke="#fff" stroke-width="2"/>'
+                f'<text y="4" text-anchor="middle" font-size="11" '
+                f'font-weight="800" fill="#fff">{i}</text></g></g>'
+            )
+
         s.append("</g></g>")
 
     # moving car + arrival burst
@@ -564,14 +672,20 @@ def mini(label, value):
 
 def route_chips(path, explored_style=False):
     out = []
-    for i, n in enumerate(path):
+
+    for i, node in enumerate(path):
+        display_name = LOCATION_NAMES.get(node, node)
+
         if explored_style:
             cls = "x"
         else:
             cls = "s" if i == 0 else ("g" if i == len(path) - 1 else "")
-        out.append(f'<span class="chip {cls}">{n}</span>')
+
+        out.append(f'<span class="chip {cls}">{display_name}</span>')
+
         if i < len(path) - 1:
             out.append('<span class="ms arrow">arrow_forward</span>')
+
     return '<div class="route-wrap">' + "".join(out) + "</div>"
 
 
@@ -585,14 +699,30 @@ ALGO_NOTES = {
 
 
 def story_html(result):
-    path, run, items = result["path"], 0, []
+    path = result["path"]
+    running_cost = 0
+    items = []
+
     for i, (a, b) in enumerate(zip(path, path[1:])):
-        w = G[a][b]["weight"]
-        run += w
-        items.append(f'<div class="tl-item" style="animation-delay:{i * 0.12:.2f}s"><span class="tl-cost">+{w}</span>'
-                     f'<b>{a} → {b}</b><br><span>Running total: {run}</span></div>')
-    return ('<div class="panel"><div style="font-weight:700;color:#0f2d52;font-size:.9rem">Journey breakdown</div>'
-            f'<div class="tl">{"".join(items)}</div></div>')
+        weight = G[a][b]["weight"]
+        running_cost += weight
+
+        from_name = LOCATION_NAMES.get(a, a)
+        to_name = LOCATION_NAMES.get(b, b)
+
+        items.append(
+            f'<div class="tl-item" style="animation-delay:{i * 0.12:.2f}s">'
+            f'<span class="tl-cost">+{weight}</span>'
+            f'<b>{from_name} → {to_name}</b><br>'
+            f'<span>Running total: {running_cost}</span></div>'
+        )
+
+    return (
+        '<div class="panel">'
+        '<div style="font-weight:700;color:#0f2d52;font-size:.9rem">'
+        'Journey breakdown</div>'
+        f'<div class="tl">{"".join(items)}</div></div>'
+    )
 
 
 PALETTE = ["#1d7bc4", "#22b8cf", "#8b5cf6", "#10b981", "#f59e0b"]
@@ -615,8 +745,8 @@ def bar_chart(df, col):
 # ============================================================
 st.session_state.setdefault("route_result", None)
 st.session_state.setdefault("comparison_results", None)
-st.session_state.setdefault("start_sel", "College")
-st.session_state.setdefault("dest_sel", "Airport")
+st.session_state.setdefault("start_sel", "A")
+st.session_state.setdefault("dest_sel", "F")
 st.session_state.setdefault("last_key", None)
 
 
@@ -676,16 +806,36 @@ with st.sidebar:
     <div class="sb-label"><span class="ms">route</span>Journey</div>
     """)
     locations = sorted(G.nodes())
-    start = st.selectbox("From", locations, key="start_sel")
-    dest_options = [l for l in locations if l != start]
+
+    start = st.selectbox(
+        "From",
+        locations,
+        format_func=lambda node: LOCATION_NAMES.get(node, node),
+        key="start_sel"
+    )
+
+    dest_options = [node for node in locations if node != start]
+
     if st.session_state.dest_sel not in dest_options:
         st.session_state.dest_sel = dest_options[0]
-    st.button("⇅  Swap", key="swap_btn", on_click=swap_locations, use_container_width=True)
-    destination = st.selectbox("To", dest_options, key="dest_sel")
+
+    st.button(
+        "⇅  Swap",
+        key="swap_btn",
+        on_click=swap_locations,
+        use_container_width=True
+    )
+
+    destination = st.selectbox(
+        "To",
+        dest_options,
+        format_func=lambda node: LOCATION_NAMES.get(node, node),
+        key="dest_sel"
+    )
 
     html('<div class="sb-label"><span class="ms">psychology</span>Strategy</div>')
     algorithm_name = st.selectbox("Algorithm", list(ALGORITHMS.keys()), label_visibility="collapsed")
-    html(f'<div class="sb-note">{ALGO_SHORT[algorithm_name]}</div>')
+    html(f'<div class="sb-note" >{ALGO_SHORT[algorithm_name]}</div>')
 
     html('<div class="sb-label"><span class="ms">tune</span>Playback</div>')
     speed = float(st.select_slider("Animation speed", options=["0.5×", "1×", "1.5×", "2×"], value="1×").replace("×", ""))
@@ -722,7 +872,18 @@ c1, c2, c3, c4 = st.columns(4)
 c1.markdown(stat_card("location_city", "Locations", G.number_of_nodes(), "linear-gradient(135deg,#1d7bc4,#38bdf8)"), unsafe_allow_html=True)
 c2.markdown(stat_card("alt_route", "Road segments", G.number_of_edges(), "linear-gradient(135deg,#8b5cf6,#a78bfa)"), unsafe_allow_html=True)
 c3.markdown(stat_card("psychology", "Algorithms", len(ALGORITHMS), "linear-gradient(135deg,#10b981,#34d399)"), unsafe_allow_html=True)
-c4.markdown(stat_card("navigation", "Current route", f"{start} → {destination}", "linear-gradient(135deg,#f59e0b,#fbbf24)"), unsafe_allow_html=True)
+start_name = LOCATION_NAMES.get(start, start)
+destination_name = LOCATION_NAMES.get(destination, destination)
+
+c4.markdown(
+    stat_card(
+        "navigation",
+        "Current route",
+        f"{start_name} → {destination_name}",
+        "linear-gradient(135deg,#f59e0b,#fbbf24)"
+    ),
+    unsafe_allow_html=True
+)
 st.write("")
 
 # ============================================================
@@ -802,7 +963,9 @@ if comparison:
             "Road segments": x["edges"] if x["found"] else None,
             "Nodes explored": x["nodes_explored"], "Time (ms)": round(x["time_ms"], 4),
             "Highlights": "  ".join(tags),
-            "Route": " → ".join(x["path"]) if x["found"] else "No route",
+            "Route": " → ".join(
+                LOCATION_NAMES.get(node, node) for node in x["path"]
+            ) if x["found"] else "No route",
         })
     df = pd.DataFrame(rows)
     if found:
